@@ -1,103 +1,17 @@
 import { useMemo, useRef, useState } from 'react'
+import bunny from './assets/bunny.png'
+import { getEmailsFromCsv } from './parseEmails.js'
 import './App.css'
-
-function parseCsvRows(text) {
-  const rows = []
-  let currentRow = []
-  let currentValue = ''
-  let inQuotes = false
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i]
-    const nextChar = text[i + 1]
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        currentValue += '"'
-        i += 1
-      } else {
-        inQuotes = !inQuotes
-      }
-      continue
-    }
-
-    if (char === ',' && !inQuotes) {
-      currentRow.push(currentValue)
-      currentValue = ''
-      continue
-    }
-
-    if ((char === '\n' || char === '\r') && !inQuotes) {
-      if (char === '\r' && nextChar === '\n') {
-        i += 1
-      }
-
-      currentRow.push(currentValue)
-      if (currentRow.some((cell) => cell !== '')) {
-        rows.push(currentRow)
-      }
-      currentRow = []
-      currentValue = ''
-      continue
-    }
-
-    currentValue += char
-  }
-
-  if (currentValue.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentValue)
-    if (currentRow.some((cell) => cell !== '')) {
-      rows.push(currentRow)
-    }
-  }
-
-  return rows
-}
-
-function getEmailsFromCsv(text) {
-  const rows = parseCsvRows(text)
-
-  if (!rows.length) {
-    throw new Error('The CSV appears to be empty.')
-  }
-
-  const header = rows[0].map((cell) => cell.trim())
-  const emailIndex = header.findIndex((cell) => cell === 'Campus Email')
-
-  if (emailIndex === -1) {
-    throw new Error('No "Campus Email" column was found in this CSV.')
-  }
-
-  const emails = []
-
-  for (let i = 1; i < rows.length; i += 1) {
-    const row = rows[i]
-    const value = (row[emailIndex] ?? '').trim()
-
-    if (!value || value === '(Hidden)') {
-      continue
-    }
-
-    if (!emails.includes(value)) {
-      emails.push(value)
-    }
-  }
-
-  if (!emails.length) {
-    throw new Error('No valid email addresses were found in the selected CSV.')
-  }
-
-  return emails
-}
 
 function App() {
   const [emails, setEmails] = useState([])
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
   const [isDragging, setIsDragging] = useState(false)
+  const [copied, setCopied] = useState(false)
   const fileInputRef = useRef(null)
 
-  const emailList = useMemo(() => emails.join(', '), [emails])
+  const emailList = useMemo(() => emails.join(','), [emails])
 
   const handleFile = (file) => {
     if (!file) {
@@ -105,7 +19,7 @@ function App() {
     }
 
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Please upload a CSV file.')
+      setError('Please upload a .csv file.')
       return
     }
 
@@ -114,19 +28,21 @@ function App() {
     reader.onload = (event) => {
       try {
         const text = String(event.target?.result ?? '')
-        const extractedEmails = getEmailsFromCsv(text)
-        setEmails(extractedEmails)
+        setEmails(getEmailsFromCsv(text))
         setFileName(file.name)
         setError('')
+        setCopied(false)
       } catch (readError) {
         setError(readError.message)
         setEmails([])
+        setFileName('')
       }
     }
 
     reader.onerror = () => {
       setError('There was a problem reading the file.')
       setEmails([])
+      setFileName('')
     }
 
     reader.readAsText(file)
@@ -135,40 +51,45 @@ function App() {
   const handleDrop = (event) => {
     event.preventDefault()
     setIsDragging(false)
-    const [file] = event.dataTransfer.files
-    handleFile(file)
+    handleFile(event.dataTransfer.files[0])
   }
 
   const handleInputChange = (event) => {
-    const [file] = event.target.files
-    handleFile(file)
+    handleFile(event.target.files[0])
     event.target.value = ''
   }
 
   const copyEmails = async () => {
-    if (!emails.length) {
-      return
-    }
-
     try {
       await navigator.clipboard.writeText(emailList)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
     } catch {
-      // no-op: clipboard availability can vary by browser
+      // clipboard availability varies by browser; the text stays selectable
     }
   }
 
   return (
-    <main className="page-shell">
-      <section className="card">
-        <p className="eyebrow">CSV email extractor</p>
-        <h1>Drop your roster and get the emails</h1>
-        <p className="subtitle">
-          Upload a CSV file and the app will pull out every address in the
-          <strong> Campus Email</strong> column.
-        </p>
+    <main className="page">
+      <header className="hero">
+        <div className="hero-copy">
+          <p className="eyebrow">Email extractor</p>
+          <h1>
+            Roster in.
+            <br />
+            Emails out.
+          </h1>
+          <p className="subtitle">
+            Drop any CSV and get every email address back as one
+            comma-separated list, campus or not.
+          </p>
+        </div>
+        <img className="hero-art" src={bunny} alt="A bunny typing on a laptop" />
+      </header>
 
+      <section className="panel">
         <div
-          className={`drop-zone ${isDragging ? 'dragging' : ''}`}
+          className={`drop-zone${isDragging ? ' dragging' : ''}`}
           onDragOver={(event) => {
             event.preventDefault()
             setIsDragging(true)
@@ -192,42 +113,46 @@ function App() {
             onChange={handleInputChange}
             hidden
           />
-
-          <div className="drop-icon">⇪</div>
-          <p className="drop-title">Drag & drop a CSV here</p>
-          <p className="drop-subtitle">or click to browse</p>
-          {fileName ? <span className="file-badge">{fileName}</span> : null}
+          <p className="drop-title">
+            {fileName ? fileName : 'Drop a CSV here'}
+          </p>
+          <p className="drop-subtitle">
+            {fileName ? 'Click or drop to use a different file' : 'or click to browse'}
+          </p>
         </div>
 
-        {error ? <div className="error-box">{error}</div> : null}
-
-        <div className="results-box">
-          <div className="results-header">
-            <h2>Extracted emails</h2>
-            {emails.length ? (
-              <button type="button" onClick={copyEmails} className="copy-button">
-                Copy
-              </button>
-            ) : null}
+        {error ? (
+          <div className="error-box" role="alert">
+            {error}
           </div>
+        ) : null}
 
-          {emails.length ? (
-            <>
-              <div className="email-list">
-                {emails.map((email) => (
-                  <span key={email} className="email-pill">
-                    {email}
-                  </span>
-                ))}
+        {emails.length ? (
+          <div className="results">
+            <div className="results-header">
+              <div>
+                <h2>Your list</h2>
+                <p className="count">
+                  {emails.length} unique {emails.length === 1 ? 'email' : 'emails'}
+                </p>
               </div>
+              <button type="button" onClick={copyEmails} className="copy-button">
+                {copied ? 'Copied' : 'Copy list'}
+              </button>
+            </div>
 
-              <textarea readOnly value={emailList} className="email-output" />
-            </>
-          ) : (
-            <p className="empty-state">No emails extracted yet.</p>
-          )}
-        </div>
+            <textarea
+              readOnly
+              value={emailList}
+              className="email-output"
+              onFocus={(event) => event.target.select()}
+              aria-label="Comma-separated email list"
+            />
+          </div>
+        ) : null}
       </section>
+
+      <footer className="footnote">Runs entirely in your browser. Nothing is uploaded.</footer>
     </main>
   )
 }

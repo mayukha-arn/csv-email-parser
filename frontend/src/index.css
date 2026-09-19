@@ -1,9 +1,9 @@
 :root {
-  font-family: Inter, 'Segoe UI', sans-serif;
+  font-family: Inter, ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background: #f8fafc;
+  color: #111111;
+  background: #ffffff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -14,8 +14,9 @@
   box-sizing: border-box;
 }
 
-html {
-  background: #f8fafc;
+html,
+body {
+  background: #ffffff;
 }
 
 body {
