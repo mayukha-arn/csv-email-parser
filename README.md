@@ -44,3 +44,13 @@ csv_file = Path(__file__).with_name("my_roster.csv")
 - The script expects UTF-8 encoded CSV data.
 - It ignores blank email cells and `(Hidden)` values.
 - The output is formatted as a comma-separated list suitable for pasting into another system.
+
+## GitHub Pages
+
+The browser app in `frontend/` is configured to deploy to GitHub Pages at:
+
+```text
+https://<your-github-user>.github.io/csv-email-parser/
+```
+
+Push the repository's `main` branch, then enable **Settings > Pages > Build and deployment > Source: GitHub Actions**. The workflow in `.github/workflows/deploy-pages.yml` builds and publishes the app automatically.
